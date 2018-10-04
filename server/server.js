@@ -35,19 +35,39 @@ app.get('/todos/:id', (req, res) => {
   var id = req.params.id;
 
   if (!ObjectID.isValid(id)) {
-    return res.status(404).send();
+    return res.status(404).send('Id provided is not valid');
   }
 
   Todo.findById(id).then((todo) => {
     if (!todo) {
-      return res.status(404).send();
+      return res.status(404).send('Unable to find todo');
     }
 
     res.send({todo});
   }).catch((e) => {
-    res.status(400).send();
+    res.status(400).send('Error processing request: ', e);
   });
 });
+
+app.delete('/todos/:id', (req, res) => {
+  var id = req.params.id;
+
+  if (!ObjectID.isValid(id)) {
+    return res.status(404).send('Id provided is not valid');
+  }
+
+  Todo.findByIdAndDelete(id).then((todo) => {
+    if (!todo) {
+      return res.status(404).send('Unable to find todo');
+    }
+
+    res.send({todo});
+  }).catch((e) => {
+    res.status(400).send('Error processing request: ', e);
+  });
+});
+
+
 
 app.listen(port, () => {
   console.log(`Started up at port ${port}`);
