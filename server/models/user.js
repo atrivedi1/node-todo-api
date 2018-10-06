@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs')
 const _ = require('lodash');
 
 const UserSchema = new mongoose.Schema({
@@ -34,6 +35,24 @@ const UserSchema = new mongoose.Schema({
 	}]
 });
 
+/*CUSTOM MIDDLEWARE */
+UserSchema.pre('save', function (next) {
+  var user = this;
+
+  if (user.isModified('password')) {
+
+    let newPassword = user.password;
+    
+    bcrypt.genSalt(10, (err, salt) => {
+      bcrypt.hash(newPassword, salt, (err, newHash) => {
+        user.password = newHash;
+        next();
+      });
+    });
+  } else {
+    next();
+  }
+});
 
 /*CUSTOM USER METHODS
 NOTE: using reg es5 function as we need to be able to bind to this*/
@@ -45,6 +64,7 @@ UserSchema.methods.toJSON = function() {
 
 	return _.pick(userObject, ['_id', 'email'])
 }
+
 UserSchema.methods.generateAuthToken = function() {
  let user = this;
  let access = 'auth';
