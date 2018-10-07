@@ -4,6 +4,7 @@ const _ = require('lodash');
 const express = require('express');
 const bodyParser = require('body-parser');
 const {ObjectID} = require('mongodb');
+const bcrypt = require('bcryptjs');
 
 const {mongoose} = require('./db/mongoose');
 const {Todo} = require('./models/todo');
@@ -14,6 +15,42 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+
+/*USER ROUTES*/
+app.post('/users', (req, res) => {
+  let userInfo = _.pick(req.body, ['email', 'password'])
+  let user = new User(userInfo);
+
+  user.save()
+    .then(() => {
+      return user.generateAuthToken();
+    })
+    .then((token) => {
+      res.header('x-auth', token).send(user);
+    })
+    .catch((e) => {
+      res.status(400).send(e)
+    })
+});
+
+app.post('/users/login', (req, res) => {
+  let body = _.pick(req.body, ['email', 'password']);
+
+  User.findByCredentials(body.email, body.password)
+    .then((user) => {
+      return user.generateAuthToken()
+        .then((token) => {
+          res.header('x-auth', token).send(user);
+        })
+    })
+    .catch((err) => {
+      res.status(400).send('Invalid login credentials');
+    });
+})
+
+app.get('/users/me', authenticate, (req, res) => {
+  res.send(req.user);
+})
 
 /*TODO ROUTES*/
 app.post('/todos', (req, res) => {
@@ -99,29 +136,6 @@ app.patch('/todos/:id', (req, res) => {
       res.status(400).send('Error processing update')
     })
 })
-
-/*USER ROUTES*/
-app.post('/users', (req, res) => {
-  let userInfo = _.pick(req.body, ['email', 'password'])
-  let user = new User(userInfo);
-
-  user.save()
-    .then(() => {
-      return user.generateAuthToken();
-    })
-    .then((token) => {
-      res.header('x-auth', token).send(user);
-    })
-    .catch((e) => {
-      res.status(400).send(e)
-    })
-});
-
-app.get('/users/me', authenticate, (req, res) => {
-  res.send(req.user);
-})
-
-
 
 app.listen(port, () => {
   console.log(`Started up at port ${port}`);
