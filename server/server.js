@@ -17,48 +17,45 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
 /*USER ROUTES*/
-app.post('/users', (req, res) => {
-  let userInfo = _.pick(req.body, ['email', 'password'])
-  let user = new User(userInfo);
+app.post('/users', async (req, res) => {
+  try {
+    const userInfo = _.pick(req.body, ['email', 'password'])
+    const user = new User(userInfo);
+    await user.save();
+    const token = await user.generateAuthToken();
+    res.header('x-auth', token).send(user);
+  }
 
-  user.save()
-    .then(() => {
-      return user.generateAuthToken();
-    })
-    .then((token) => {
-      res.header('x-auth', token).send(user);
-    })
-    .catch((e) => {
-      res.status(400).send(e)
-    })
+  catch (e) {
+    res.status(400).send(e)
+  }
 });
 
-app.post('/users/login', (req, res) => {
-  let body = _.pick(req.body, ['email', 'password']);
-
-  User.findByCredentials(body.email, body.password)
-    .then((user) => {
-      return user.generateAuthToken()
-        .then((token) => {
-          res.header('x-auth', token).send(user);
-        })
-    })
-    .catch((err) => {
-      res.status(400).send('Invalid login credentials');
-    });
+app.post('/users/login', async (req, res) => {
+  try {
+    const body = _.pick(req.body, ['email', 'password']);
+    let user = await User.findByCredentials(body.email, body.password);
+    let token = await user.generateAuthToken();
+    res.header('x-auth', token).send(user);
+  }
+  catch (e) {
+     res.status(400).send('Invalid login credentials');
+  }
 })
 
 app.get('/users/me', authenticate, (req, res) => {
   res.send(req.user);
 })
 
-app.delete('/users/me/token', authenticate, (req, res) => {
-  req.user.removeToken(req.token).then(() => {
-    res.status(200).send("successfully logged out")
-  }, () => {
-    res.status(400).send();
-  })
-})
+app.delete('/users/me/token', authenticate, async (req, res) => {
+  try {
+    await req.user.removeToken(req.token);
+    res.status(200).send("successfully logged out");
+  } 
+  catch (e) {
+   res.status(400).send();
+  }
+});
 
 /*TODO ROUTES*/
 app.post('/todos', authenticate, (req, res) => {
@@ -107,26 +104,28 @@ app.get('/todos/:id', authenticate, (req, res) => {
   });
 });
 
-app.delete('/todos/:id', authenticate, (req, res) => {
-  let id = req.params.id;
+app.delete('/todos/:id', authenticate, async (req, res) => {
+  const id = req.params.id;
 
   if (!ObjectID.isValid(id)) {
     return res.status(404).send('Id provided is not valid');
   }
 
-  Todo.findOneAndRemove({
-    _id: id,
-    _creator: req.user._id
-  })
-  .then((todo) => {
-    if (!todo) {
+  try {
+    const todo = await Todo.findOneAndRemove({
+      _id: id,
+      _creator: req.user._id
+    });
+
+    if(!todo) {
       return res.status(404).send('Unable to find todo');
     }
 
-    res.send({todo});
-  }).catch((e) => {
+    res.send({todo})
+  }
+  catch (e) {
     res.status(400).send('Error processing request: ', e);
-  });
+  }
 });
 
 app.patch('/todos/:id', authenticate, (req, res) => {
